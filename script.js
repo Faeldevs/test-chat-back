@@ -8,7 +8,7 @@ const messagesWindow = document.getElementById('messages-window');
 const usernameInput = document.getElementById('username');
 const messageTextInput = document.getElementById('message-text');
 const sendButton = document.getElementById('send-button');
-// O elemento do botão de limpar foi removido
+const clearButton = document.getElementById('clear-button');
 
 // 3. FUNÇÕES DO CHAT
 
@@ -22,68 +22,85 @@ async function fetchMessages() {
 async function sendMessage() {
     const user = usernameInput.value.trim();
     const text = messageTextInput.value.trim();
-    if (!user || !text) { alert('Por favor, preencha o nome e a mensagem!'); return; }
+    if (!user || !text) { 
+        alert('Por favor, preencha o nome e a mensagem!'); 
+        return; 
+    }
+    
     const { error } = await supabaseClient.from('messages').insert([{ user: user, text: text }]);
-    if (error) { console.error('Erro ao enviar mensagem:', error); } else { messageTextInput.value = ''; }
-}
-
-// FUNÇÃO DE LIMPEZA MODIFICADA (SEM CONFIRMAÇÃO)
-async function clearChat() {
-    console.log('Iniciando limpeza automática do chat...');
-
-    // Deleta todas as mensagens da tabela
-    const { error } = await supabaseClient
-        .from('messages')
-        .delete()
-        .gt('id', 0); // gt = greater than
 
     if (error) {
-        console.error('Erro ao limpar o chat automaticamente:', error);
+        console.error('Erro ao enviar mensagem:', error);
+        alert('Houve um erro ao enviar a mensagem.');
     } else {
-        console.log('Chat limpo com sucesso no banco de dados.');
+        location.reload();
     }
 }
+
+// ===== FUNÇÃO MODIFICADA PARA PEDIR SENHA =====
+async function clearChat() {
+    // 1. Pede a senha usando um prompt
+    const passwordAttempt = prompt("Para apagar todas as mensagens, por favor, digite a senha de administrador:");
+
+    // 2. Se o usuário clicar em "Cancelar", o prompt retorna null. Saímos da função.
+    if (passwordAttempt === null) {
+        return;
+    }
+
+    // 3. Verifica se a senha está correta
+    if (passwordAttempt === "lindo") {
+        // Senha correta, executa a exclusão
+        console.log("Senha correta. Limpando o chat...");
+        const { error } = await supabaseClient
+            .from('messages')
+            .delete()
+            .gt('id', 0); // gt = greater than, apaga todas as linhas
+
+        if (error) {
+            console.error('Erro ao limpar o chat:', error);
+            alert('Ocorreu um erro ao limpar o chat.');
+        }
+    } else {
+        // Senha incorreta, avisa o usuário
+        alert("Senha incorreta!");
+    }
+}
+
 
 function addMessageToWindow(message) {
     const messageDiv = document.createElement('div');
     messageDiv.classList.add('message');
-    messageDiv.innerHTML = `<strong>${message.user}</strong>${message.text}`;
+    
+    const userSpan = document.createElement('strong');
+    userSpan.textContent = message.user + ':';
+    
+    const textSpan = document.createElement('span');
+    textSpan.textContent = ' ' + message.text;
+
+    messageDiv.appendChild(userSpan);
+    messageDiv.appendChild(textSpan);
+    
     messagesWindow.prepend(messageDiv);
 }
 
-// 4. MÁGICA EM TEMPO REAL E EVENTOS
+// 4. EVENTOS E LÓGICA EM TEMPO REAL
 
 sendButton.addEventListener('click', sendMessage);
-// O evento do botão de limpar foi removido
+clearButton.addEventListener('click', clearChat);
 
 messageTextInput.addEventListener('keyup', (event) => {
-    if (event.key === 'Enter') {
-        sendMessage();
-    }
+    if (event.key === 'Enter') sendMessage();
 });
 
 const channel = supabaseClient.channel('chat-realtime');
 channel
-  .on(
-    'postgres_changes',
-    { event: 'INSERT', schema: 'public', table: 'messages' },
-    (payload) => {
-      addMessageToWindow(payload.new);
-    }
-  )
-  .on(
-    'postgres_changes',
-    { event: 'DELETE', schema: 'public', table: 'messages' },
-    (payload) => {
-      messagesWindow.innerHTML = '';
-    }
-  )
+  .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+    addMessageToWindow(payload.new);
+  })
+  .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'messages' }, (payload) => {
+    messagesWindow.innerHTML = '';
+  })
   .subscribe();
-
-// LÓGICA NOVA: TEMPORIZADOR PARA LIMPEZA AUTOMÁTICA
-// Executa a função clearChat a cada 2 minutos (120,000 milissegundos)
-setInterval(clearChat, 2 * 60 * 1000);
-
 
 // Carrega as mensagens iniciais quando a página é aberta
 fetchMessages();
