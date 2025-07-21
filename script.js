@@ -8,10 +8,12 @@ const messagesWindow = document.getElementById('messages-window');
 const usernameInput = document.getElementById('username');
 const messageTextInput = document.getElementById('message-text');
 const sendButton = document.getElementById('send-button');
-const refreshButton = document.getElementById('refresh-button');
-const clearButton = document.getElementById('clear-button'); // Botão de limpar de volta
+const clearButton = document.getElementById('clear-button');
 const riddleDisplay = document.getElementById('riddle-display');
 const winnersList = document.getElementById('winners-list');
+// Botão de refresh não é mais necessário
+const refreshButton = document.getElementById('refresh-button');
+if (refreshButton) { refreshButton.style.display = 'none'; } // Esconde o botão de refresh
 
 // 3. ESTADO DO JOGO
 let gameState = {};
@@ -23,16 +25,15 @@ function normalizeText(text) {
     return text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
 
-function saveGameState() {
-    localStorage.setItem('cosmicChatGameState', JSON.stringify(gameState));
-}
-
-function loadGameState() {
-    const savedState = localStorage.getItem('cosmicChatGameState');
-    if (savedState) {
-        gameState = JSON.parse(savedState);
+async function fetchInitialState() {
+    const { data, error } = await supabaseClient.from('game_state').select('*').eq('id', 1).single();
+    if (error) {
+        console.error("Erro ao buscar estado do jogo:", error);
+    } else {
+        gameState = data;
+        updateUIFromState();
     }
-    updateUIFromState();
+    await fetchMessages();
 }
 
 function updateUIFromState() {
@@ -72,10 +73,7 @@ function addMessageToWindow(message) {
 async function sendMessage() {
     const user = usernameInput.value.trim();
     const text = messageTextInput.value.trim();
-    if (!user || !text) {
-        alert('Por favor, preencha o nome e a mensagem!');
-        return;
-    }
+    if (!user || !text) { alert('Por favor, preencha o nome e a mensagem!'); return; }
     localStorage.setItem('chatUsername', user);
 
     if (text.startsWith('/')) {
@@ -83,38 +81,25 @@ async function sendMessage() {
         const command = parts[0];
 
         if (command === '/novojogo') {
-            const newSecretWord = parts[1];
-            const riddle = parts.slice(2).join(' ');
-            if (!newSecretWord || !riddle) {
-                alert('Formato incorreto. Use: /novojogo <palavra> <charada>');
-                return;
-            }
-            gameState = { isActive: true, secretWord: normalizeText(newSecretWord), riddle: riddle, winners: [] };
-            saveGameState();
+            const secret = parts[1];
+            const riddleText = parts.slice(2).join(' ');
+            if (!secret || !riddleText) { alert('Formato: /novojogo <palavra> <charada>'); return; }
+            await supabaseClient.from('game_state').update({ is_active: true, secret_word: normalizeText(secret), riddle: riddleText, winners: [] }).eq('id', 1);
             await supabaseClient.from('messages').insert([{ user: 'SISTEMA', text: `NOVO DESAFIO LANÇADO!` }]);
-            location.reload();
-            return;
-        }
-
-        if (command === '/fimdejogo') {
-            gameState = { isActive: false, secretWord: '', riddle: '', winners: [] };
-            saveGameState();
-            await supabaseClient.from('messages').insert([{ user: 'SISTEMA', text: `O jogo foi finalizado.` }]);
-            location.reload();
+            messageTextInput.value = '';
             return;
         }
     }
 
-    const normalizedText = normalizeText(text);
-    const normalizedSecretWord = normalizeText(gameState.secretWord);
-
-    if (gameState.isActive && normalizedSecretWord && normalizedText.includes(normalizedSecretWord)) {
+    if (gameState.is_active && text.toLowerCase().includes(normalizeText(gameState.secret_word))) {
         if (!gameState.winners.includes(user)) {
-            gameState.winners.push(user);
+            const newWinners = [...gameState.winners, user];
+            await supabaseClient.from('game_state').update({ winners: newWinners }).eq('id', 1);
+            await supabaseClient.from('messages').insert([{ user: 'SISTEMA', text: `${user} acertou a palavra secreta! Parabéns!` }]);
+        } else {
+            alert('Você já acertou esta rodada!');
         }
-        saveGameState();
-        await supabaseClient.from('messages').insert([{ user: 'SISTEMA', text: `${user} acertou a palavra secreta! Parabéns!` }]);
-        location.reload();
+        messageTextInput.value = '';
         return;
     }
 
@@ -122,21 +107,15 @@ async function sendMessage() {
     if (error) {
         console.error('Erro ao enviar mensagem:', error);
     } else {
-        location.reload();
+        messageTextInput.value = '';
     }
 }
 
-// FUNÇÃO PARA O BOTÃO LIMPAR
 async function clearChat() {
-    const passwordAttempt = prompt("Digite a senha de administrador para limpar o chat:");
+    const passwordAttempt = prompt("Digite a senha de administrador:");
     if (passwordAttempt === adminPassword) {
-        // Limpa o estado do jogo na memória
-        gameState = { isActive: false, secretWord: '', riddle: '', winners: [] };
-        saveGameState();
-        // Limpa as mensagens no banco de dados
         await supabaseClient.from('messages').delete().gt('id', 0);
-        // Recarrega a página para mostrar as mudanças
-        location.reload();
+        await supabaseClient.from('game_state').update({ is_active: false, secret_word: '', riddle: '', winners: [] }).eq('id', 1);
     } else if (passwordAttempt !== null) {
         alert("Senha incorreta!");
     }
@@ -149,11 +128,24 @@ function loadUsername() {
 }
 
 sendButton.addEventListener('click', sendMessage);
+clearButton.addEventListener('click', clearChat);
 messageTextInput.addEventListener('keyup', (event) => { if (event.key === 'Enter') sendMessage(); });
-refreshButton.addEventListener('click', () => { location.reload(); });
-clearButton.addEventListener('click', clearChat); // Evento para o botão limpar
 
-// Inicialização da página
+supabaseClient.channel('chat-messages')
+  .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
+    addMessageToWindow(payload.new);
+  })
+  .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'messages' }, payload => {
+    messagesWindow.innerHTML = '';
+  })
+  .subscribe();
+
+supabaseClient.channel('game-state-updates')
+  .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'game_state' }, payload => {
+    gameState = payload.new;
+    updateUIFromState();
+  })
+  .subscribe();
+
 loadUsername();
-loadGameState();
-fetchMessages();
+fetchInitialState();
