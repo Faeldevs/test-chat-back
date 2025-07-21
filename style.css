@@ -128,6 +128,21 @@ main {
     overflow-y: auto;
 }
 
+/* ... (todo o código CSS anterior permanece igual) ... */
+
+/* ESTILO DO BOTÃO DE LIMPAR DE VOLTA */
+#clear-button {
+    border-color: #e53e3e;
+    background-color: #3b0d0d;
+    color: #e53e3e;
+}
+#clear-button:hover {
+    background-color: #e53e3e;
+    color: #3b0d0d;
+}
+
+/* O resto do CSS continua igual */
+
 #winners-section h2 { font-size: 1.8em; color: #00c2ff; margin: 0 0 10px 0; text-align: center; }
 #winners-list { list-style: none; padding: 0; font-size: 1.3em; }
 #winners-list li { padding: 8px; border-bottom: 1px dashed #6c757d; }
