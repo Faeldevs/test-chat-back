@@ -12,47 +12,33 @@ const clearButton = document.getElementById('clear-button');
 const riddleDisplay = document.getElementById('riddle-display');
 const winnersList = document.getElementById('winners-list');
 
-// 3. ESTADO DO JOGO (variáveis globais)
-let gameState = {
-    isActive: false,
-    secretWord: '',
-    riddle: '',
-    winners: []
-};
+// 3. ESTADO DO JOGO (Agora controlado pelo Supabase)
+let gameState = {}; // Será preenchido com dados do DB
 const adminPassword = "lindo";
 
 // 4. FUNÇÕES
+async function fetchInitialState() {
+    // Busca o estado atual do jogo do banco de dados
+    const { data, error } = await supabaseClient
+        .from('game_state')
+        .select('*')
+        .eq('id', 1)
+        .single();
 
-// ===== FUNÇÕES DE GERENCIAMENTO DE ESTADO =====
-function saveGameState() {
-    localStorage.setItem('cosmicChatGameState', JSON.stringify(gameState));
-}
-
-function loadGameState() {
-    const savedState = localStorage.getItem('cosmicChatGameState');
-    if (savedState) {
-        gameState = JSON.parse(savedState);
+    if (error) {
+        console.error("Erro ao buscar estado do jogo:", error);
+    } else {
+        gameState = data;
+        updateUIFromState();
     }
-    updateUIFromState();
-}
-
-function clearGameState() {
-    gameState = { isActive: false, secretWord: '', riddle: '', winners: [] };
-    localStorage.removeItem('cosmicChatGameState');
+    // Busca as mensagens do chat
+    await fetchMessages();
 }
 
 function updateUIFromState() {
-    updateRiddleDisplay(gameState.riddle);
-    updateWinnersList(gameState.winners);
-}
-
-function updateRiddleDisplay(riddle) {
-    riddleDisplay.textContent = riddle || 'Aguardando o desafio...';
-}
-
-function updateWinnersList(winners) {
+    riddleDisplay.textContent = gameState.riddle || 'Aguardando o desafio...';
     winnersList.innerHTML = '';
-    (winners || []).forEach(winner => {
+    (gameState.winners || []).forEach(winner => {
         const li = document.createElement('li');
         li.textContent = `🏆 ${winner}`;
         winnersList.appendChild(li);
@@ -83,7 +69,6 @@ function addMessageToWindow(message) {
     messagesWindow.prepend(messageDiv);
 }
 
-// ===== FUNÇÃO PRINCIPAL DE ENVIO (LÓGICA ATUALIZADA) =====
 async function sendMessage() {
     const user = usernameInput.value.trim();
     const text = messageTextInput.value.trim();
@@ -102,36 +87,53 @@ async function sendMessage() {
             const newSecretWord = parts[1];
             const riddle = parts.slice(2).join(' ');
             if (!newSecretWord || !riddle) {
-                alert('Formato incorreto. Use: /novojogo <palavra-secreta> <charada>');
+                alert('Formato incorreto. Use: /novojogo <palavra> <charada>');
                 return;
             }
-            gameState = { isActive: true, secretWord: newSecretWord.toLowerCase(), riddle: riddle, winners: [] };
-            saveGameState();
+            // ATUALIZA O ESTADO DO JOGO NO BANCO DE DADOS
+            await supabaseClient
+                .from('game_state')
+                .update({ 
+                    is_active: true, 
+                    secret_word: newSecretWord.toLowerCase(), 
+                    riddle: riddle, 
+                    winners: [] 
+                })
+                .eq('id', 1);
             await supabaseClient.from('messages').insert([{ user: 'SISTEMA', text: `NOVO DESAFIO LANÇADO!` }]);
-            location.reload();
+            messageTextInput.value = '';
             return;
         }
 
         if (command === '/fimdejogo') {
-            clearGameState();
+            const password = parts[1];
+            if (password !== adminPassword) {
+                alert('Senha de administrador incorreta!');
+                return;
+            }
+            // LIMPA O ESTADO DO JOGO NO BANCO DE DADOS
+            await supabaseClient
+                .from('game_state')
+                .update({ is_active: false, secret_word: '', riddle: '', winners: [] })
+                .eq('id', 1);
             await supabaseClient.from('messages').insert([{ user: 'SISTEMA', text: `O jogo foi finalizado.` }]);
-            location.reload();
+            messageTextInput.value = '';
             return;
         }
     }
 
     // --- LÓGICA DE VERIFICAÇÃO DE ACERTO ---
-    if (gameState.isActive && text.toLowerCase().includes(gameState.secretWord)) {
+    if (gameState.is_active && gameState.secret_word && text.toLowerCase().includes(gameState.secret_word)) {
         if (gameState.winners.includes(user)) {
             alert('Você já acertou esta rodada!');
-            return;
         } else {
-            gameState.winners.push(user);
-            saveGameState();
+            const newWinners = [...gameState.winners, user];
+            // ATUALIZA A LISTA DE VENCEDORES NO BANCO DE DADOS
+            await supabaseClient.from('game_state').update({ winners: newWinners }).eq('id', 1);
             await supabaseClient.from('messages').insert([{ user: 'SISTEMA', text: `${user} acertou a palavra secreta! Parabéns!` }]);
-            location.reload();
-            return;
         }
+        messageTextInput.value = '';
+        return;
     }
 
     // --- Envio de mensagem normal ---
@@ -139,16 +141,20 @@ async function sendMessage() {
     if (error) {
         console.error('Erro ao enviar mensagem:', error);
     } else {
-        location.reload();
+        // Apenas limpa o campo de texto, SEM RELOAD
+        messageTextInput.value = '';
     }
 }
 
 async function clearChat() {
     const passwordAttempt = prompt("Digite a senha de administrador para limpar o chat:");
     if (passwordAttempt === adminPassword) {
-        clearGameState();
         await supabaseClient.from('messages').delete().gt('id', 0);
-        location.reload();
+        // Também limpa o estado do jogo
+        await supabaseClient
+            .from('game_state')
+            .update({ is_active: false, secret_word: '', riddle: '', winners: [] })
+            .eq('id', 1);
     } else if (passwordAttempt !== null) {
         alert("Senha incorreta!");
     }
@@ -164,7 +170,22 @@ sendButton.addEventListener('click', sendMessage);
 clearButton.addEventListener('click', clearChat);
 messageTextInput.addEventListener('keyup', (event) => { if (event.key === 'Enter') sendMessage(); });
 
+// Listener para o CHAT
+supabaseClient.channel('chat-messages')
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, (payload) => {
+    fetchMessages(); // Atualiza o chat quando há mensagens novas ou deletadas
+  })
+  .subscribe();
+
+// Listener para o ESTADO DO JOGO
+supabaseClient.channel('game-state')
+  .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'game_state', filter: 'id=eq.1' }, (payload) => {
+    console.log('Estado do jogo foi atualizado!', payload.new);
+    gameState = payload.new;
+    updateUIFromState(); // Atualiza a charada e a lista de vencedores para todos em tempo real
+  })
+  .subscribe();
+
 // Inicialização da página
 loadUsername();
-loadGameState();
-fetchMessages();
+fetchInitialState();
