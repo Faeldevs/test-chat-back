@@ -8,15 +8,25 @@ const messagesWindow = document.getElementById('messages-window');
 const usernameInput = document.getElementById('username');
 const messageTextInput = document.getElementById('message-text');
 const sendButton = document.getElementById('send-button');
-const refreshButton = document.getElementById('refresh-button'); // NOVO
+const refreshButton = document.getElementById('refresh-button');
 const riddleDisplay = document.getElementById('riddle-display');
 const winnersList = document.getElementById('winners-list');
 
-// 3. ESTADO DO JOGO (usando localStorage para persistir)
+// 3. ESTADO DO JOGO
 let gameState = {};
 const adminPassword = "lindo";
 
 // 4. FUNÇÕES
+
+// ===== NOVA FUNÇÃO PARA NORMALIZAR TEXTO (REMOVER ACENTOS) =====
+function normalizeText(text) {
+    if (!text) return '';
+    return text
+        .toLowerCase()
+        .normalize("NFD") // Separa os acentos das letras
+        .replace(/[\u0300-\u036f]/g, ""); // Remove os acentos
+}
+
 function saveGameState() {
     localStorage.setItem('cosmicChatGameState', JSON.stringify(gameState));
 }
@@ -83,7 +93,7 @@ async function sendMessage() {
                 alert('Formato incorreto. Use: /novojogo <palavra> <charada>');
                 return;
             }
-            gameState = { isActive: true, secretWord: newSecretWord.toLowerCase(), riddle: riddle, winners: [] };
+            gameState = { isActive: true, secretWord: normalizeText(newSecretWord), riddle: riddle, winners: [] };
             saveGameState();
             await supabaseClient.from('messages').insert([{ user: 'SISTEMA', text: `NOVO DESAFIO LANÇADO!` }]);
             location.reload();
@@ -99,17 +109,21 @@ async function sendMessage() {
         }
     }
 
-    if (gameState.isActive && text.toLowerCase().includes(gameState.secretWord)) {
-        if (gameState.winners.includes(user)) {
-            alert('Você já acertou esta rodada!');
-            return;
-        } else {
+    // --- LÓGICA DE VERIFICAÇÃO DE ACERTO (MODIFICADA) ---
+    const normalizedText = normalizeText(text);
+    const normalizedSecretWord = normalizeText(gameState.secretWord);
+
+    if (gameState.isActive && normalizedSecretWord && normalizedText.includes(normalizedSecretWord)) {
+        // A lógica que impedia o vencedor de jogar foi removida.
+        // Agora, apenas adicionamos o nome à lista de vencedores.
+        // Para evitar nomes duplicados na lista, verificamos antes de adicionar.
+        if (!gameState.winners.includes(user)) {
             gameState.winners.push(user);
-            saveGameState();
-            await supabaseClient.from('messages').insert([{ user: 'SISTEMA', text: `${user} acertou a palavra secreta! Parabéns!` }]);
-            location.reload();
-            return;
         }
+        saveGameState();
+        await supabaseClient.from('messages').insert([{ user: 'SISTEMA', text: `${user} acertou a palavra secreta! Parabéns!` }]);
+        location.reload();
+        return;
     }
 
     const { error } = await supabaseClient.from('messages').insert([{ user: user, text: text }]);
@@ -129,7 +143,6 @@ function loadUsername() {
 sendButton.addEventListener('click', sendMessage);
 messageTextInput.addEventListener('keyup', (event) => { if (event.key === 'Enter') sendMessage(); });
 
-// NOVO EVENTO PARA O BOTÃO DE ATUALIZAR
 refreshButton.addEventListener('click', () => {
     location.reload();
 });
