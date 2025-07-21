@@ -12,13 +12,12 @@ const clearButton = document.getElementById('clear-button');
 const riddleDisplay = document.getElementById('riddle-display');
 const winnersList = document.getElementById('winners-list');
 
-// 3. ESTADO DO JOGO (Agora controlado pelo Supabase)
-let gameState = {}; // Será preenchido com dados do DB
+// 3. ESTADO DO JOGO
+let gameState = {};
 const adminPassword = "lindo";
 
 // 4. FUNÇÕES
 async function fetchInitialState() {
-    // Busca o estado atual do jogo do banco de dados
     const { data, error } = await supabaseClient
         .from('game_state')
         .select('*')
@@ -31,7 +30,6 @@ async function fetchInitialState() {
         gameState = data;
         updateUIFromState();
     }
-    // Busca as mensagens do chat
     await fetchMessages();
 }
 
@@ -78,7 +76,6 @@ async function sendMessage() {
     }
     localStorage.setItem('chatUsername', user);
 
-    // --- LÓGICA DE COMANDOS ---
     if (text.startsWith('/')) {
         const parts = text.split(' ');
         const command = parts[0];
@@ -90,28 +87,22 @@ async function sendMessage() {
                 alert('Formato incorreto. Use: /novojogo <palavra> <charada>');
                 return;
             }
-            // ATUALIZA O ESTADO DO JOGO NO BANCO DE DADOS
             await supabaseClient
                 .from('game_state')
-                .update({ 
-                    is_active: true, 
-                    secret_word: newSecretWord.toLowerCase(), 
-                    riddle: riddle, 
-                    winners: [] 
-                })
+                .update({ is_active: true, secret_word: newSecretWord.toLowerCase(), riddle: riddle, winners: [] })
                 .eq('id', 1);
             await supabaseClient.from('messages').insert([{ user: 'SISTEMA', text: `NOVO DESAFIO LANÇADO!` }]);
             messageTextInput.value = '';
             return;
         }
 
+        const password = parts[1];
+        if (password !== adminPassword) {
+            alert('Senha de administrador incorreta!');
+            return;
+        }
+
         if (command === '/fimdejogo') {
-            const password = parts[1];
-            if (password !== adminPassword) {
-                alert('Senha de administrador incorreta!');
-                return;
-            }
-            // LIMPA O ESTADO DO JOGO NO BANCO DE DADOS
             await supabaseClient
                 .from('game_state')
                 .update({ is_active: false, secret_word: '', riddle: '', winners: [] })
@@ -122,13 +113,11 @@ async function sendMessage() {
         }
     }
 
-    // --- LÓGICA DE VERIFICAÇÃO DE ACERTO ---
     if (gameState.is_active && gameState.secret_word && text.toLowerCase().includes(gameState.secret_word)) {
         if (gameState.winners.includes(user)) {
             alert('Você já acertou esta rodada!');
         } else {
-            const newWinners = [...gameState.winners, user];
-            // ATUALIZA A LISTA DE VENCEDORES NO BANCO DE DADOS
+            const newWinners = [...(gameState.winners || []), user];
             await supabaseClient.from('game_state').update({ winners: newWinners }).eq('id', 1);
             await supabaseClient.from('messages').insert([{ user: 'SISTEMA', text: `${user} acertou a palavra secreta! Parabéns!` }]);
         }
@@ -136,12 +125,10 @@ async function sendMessage() {
         return;
     }
 
-    // --- Envio de mensagem normal ---
     const { error } = await supabaseClient.from('messages').insert([{ user: user, text: text }]);
     if (error) {
         console.error('Erro ao enviar mensagem:', error);
     } else {
-        // Apenas limpa o campo de texto, SEM RELOAD
         messageTextInput.value = '';
     }
 }
@@ -150,7 +137,6 @@ async function clearChat() {
     const passwordAttempt = prompt("Digite a senha de administrador para limpar o chat:");
     if (passwordAttempt === adminPassword) {
         await supabaseClient.from('messages').delete().gt('id', 0);
-        // Também limpa o estado do jogo
         await supabaseClient
             .from('game_state')
             .update({ is_active: false, secret_word: '', riddle: '', winners: [] })
@@ -170,10 +156,18 @@ sendButton.addEventListener('click', sendMessage);
 clearButton.addEventListener('click', clearChat);
 messageTextInput.addEventListener('keyup', (event) => { if (event.key === 'Enter') sendMessage(); });
 
+// ===== CÓDIGO CORRIGIDO =====
 // Listener para o CHAT
 supabaseClient.channel('chat-messages')
-  .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, (payload) => {
-    fetchMessages(); // Atualiza o chat quando há mensagens novas ou deletadas
+  .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+    console.log('Nova mensagem recebida!', payload.new);
+    // Apenas adiciona a nova mensagem, em vez de recarregar tudo
+    addMessageToWindow(payload.new);
+  })
+  .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'messages' }, (payload) => {
+    console.log('Mensagens deletadas, limpando a tela.');
+    // Apenas limpa a janela, em vez de recarregar tudo
+    messagesWindow.innerHTML = '';
   })
   .subscribe();
 
@@ -182,7 +176,7 @@ supabaseClient.channel('game-state')
   .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'game_state', filter: 'id=eq.1' }, (payload) => {
     console.log('Estado do jogo foi atualizado!', payload.new);
     gameState = payload.new;
-    updateUIFromState(); // Atualiza a charada e a lista de vencedores para todos em tempo real
+    updateUIFromState();
   })
   .subscribe();
 
