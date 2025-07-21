@@ -1,10 +1,10 @@
 // 1. CONFIGURAÇÃO DO SUPABASE
-// Dados do seu projeto inseridos aqui.
 const SUPABASE_URL = 'https://qpkpxodceqyzafzdleej.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFwa3B4b2RjZXF5emFmemRsZWVqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMxMDI5MTAsImV4cCI6MjA2ODY3ODkxMH0.0bR-qzCk-LMwuQ72NcqI3ibuOZrow5uTZZaeh-6k7tg';
 
-// Cria o "cliente" de conexão com o Supabase
-const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+// CORREÇÃO AQUI: Renomeamos a variável para 'supabaseClient' para evitar conflito.
+// A biblioteca global que tem a função '.createClient' chama-se 'supabase'.
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // 2. ELEMENTOS DO HTML
 const messagesWindow = document.getElementById('messages-window');
@@ -16,8 +16,8 @@ const sendButton = document.getElementById('send-button');
 
 // Função para buscar mensagens existentes e exibi-las na tela
 async function fetchMessages() {
-    // Seleciona todas as mensagens da tabela 'messages', ordenando pelas mais recentes
-    const { data, error } = await supabase
+    // Usamos 'supabaseClient' aqui
+    const { data, error } = await supabaseClient
         .from('messages')
         .select('*')
         .order('created_at', { ascending: false });
@@ -27,10 +27,7 @@ async function fetchMessages() {
         return;
     }
 
-    // Limpa a janela de mensagens antes de adicionar as novas
     messagesWindow.innerHTML = '';
-    
-    // Inverte a ordem para exibir as mais antigas primeiro
     data.reverse().forEach(addMessageToWindow);
 }
 
@@ -39,21 +36,19 @@ async function sendMessage() {
     const user = usernameInput.value.trim();
     const text = messageTextInput.value.trim();
 
-    // Validação simples: não envia se o nome ou a mensagem estiverem vazios
     if (!user || !text) {
         alert('Por favor, preencha o nome e a mensagem!');
         return;
     }
 
-    // Insere a nova mensagem na tabela 'messages'
-    const { error } = await supabase
+    // Usamos 'supabaseClient' aqui
+    const { error } = await supabaseClient
         .from('messages')
         .insert([{ user: user, text: text }]);
 
     if (error) {
         console.error('Erro ao enviar mensagem:', error);
     } else {
-        // Limpa o campo de texto após o envio
         messageTextInput.value = '';
     }
 }
@@ -62,44 +57,33 @@ async function sendMessage() {
 function addMessageToWindow(message) {
     const messageDiv = document.createElement('div');
     messageDiv.classList.add('message');
-    
-    // Adiciona o nome do usuário e o texto da mensagem
     messageDiv.innerHTML = `<strong>${message.user}</strong>${message.text}`;
-    
-    // Adiciona a nova mensagem no início da janela (para manter as novas embaixo com o CSS)
     messagesWindow.prepend(messageDiv);
 }
 
-
 // 4. MÁGICA EM TEMPO REAL E EVENTOS
 
-// Ouve por cliques no botão de enviar
 sendButton.addEventListener('click', sendMessage);
 
-// Permite enviar com a tecla "Enter"
 messageTextInput.addEventListener('keyup', (event) => {
     if (event.key === 'Enter') {
         sendMessage();
     }
 });
 
-
-// Aqui acontece a mágica do tempo real!
-// O Supabase vai nos avisar sempre que algo novo for INSERIDO na tabela 'messages'
-const channel = supabase.channel('chat-realtime');
+// Usamos 'supabaseClient' aqui
+const channel = supabaseClient.channel('chat-realtime');
 
 channel
   .on(
     'postgres_changes',
     { event: 'INSERT', schema: 'public', table: 'messages' },
     (payload) => {
-      // Quando uma nova mensagem chega, a função 'addMessageToWindow' é chamada
       console.log('Nova mensagem recebida!', payload.new);
       addMessageToWindow(payload.new);
     }
   )
   .subscribe();
-
 
 // Carrega as mensagens iniciais quando a página é aberta
 fetchMessages();
