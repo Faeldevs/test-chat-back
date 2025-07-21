@@ -98,9 +98,17 @@ main {
 .system-message { font-style: italic; text-align: center; }
 .system-message strong { color: #ffffff; }
 
-#input-area { display: flex; gap: 10px; flex-shrink: 0; }
+#input-area { 
+    display: grid;
+    grid-template-columns: 1fr auto auto auto; /* Colunas para inputs e botões */
+    gap: 10px; 
+    flex-shrink: 0; 
+}
 
-#username, #message-text, #send-button, #clear-button {
+#username { grid-column: 1 / 2; }
+#message-text { grid-column: 1 / 5; grid-row: 2 / 3; } /* Ocupa a linha de baixo inteira */
+
+#username, #message-text, #send-button, #clear-button, #refresh-button {
     padding: 10px;
     border: 2px solid #6c757d;
     background-color: #212529;
@@ -110,12 +118,19 @@ main {
     border-radius: 5px;
 }
 
-#username { width: 150px; }
-#message-text { flex-grow: 1; }
-#send-button, #clear-button { cursor: pointer; transition: background-color 0.3s, color 0.3s, border-color 0.3s; }
-#send-button { border-color: #00c2ff; color: #00c2ff; }
+#send-button, #clear-button, #refresh-button { 
+    cursor: pointer; 
+    transition: background-color 0.3s, color 0.3s;
+    white-space: nowrap; /* Evita que o texto quebre */
+}
+
+#send-button { border-color: #00c2ff; color: #00c2ff; grid-column: 2 / 3; }
 #send-button:hover { background-color: #00c2ff; color: #0d1f3b; }
-#clear-button { border-color: #e53e3e; color: #e53e3e; }
+
+#refresh-button { border-color: #39ff14; color: #39ff14; grid-column: 3 / 4; }
+#refresh-button:hover { background-color: #39ff14; color: #0d1f3b; }
+
+#clear-button { border-color: #e53e3e; color: #e53e3e; grid-column: 4 / 5; }
 #clear-button:hover { background-color: #e53e3e; color: #3b0d0d; }
 
 #winners-section {
@@ -128,44 +143,26 @@ main {
     overflow-y: auto;
 }
 
-/* ... (todo o código CSS anterior permanece igual) ... */
-
-/* ESTILO DO BOTÃO DE LIMPAR DE VOLTA */
-#clear-button {
-    border-color: #e53e3e;
-    background-color: #3b0d0d;
-    color: #e53e3e;
-}
-#clear-button:hover {
-    background-color: #e53e3e;
-    color: #3b0d0d;
-}
-
-/* Adicione este bloco ao seu CSS */
-#refresh-button {
-    border-color: #39ff14; /* Verde neon */
-    background-color: #0d3b1f;
-    color: #39ff14;
-}
-
-#refresh-button:hover {
-    background-color: #39ff14;
-    color: #0d3b1f;
-}
-
-/* O resto do seu CSS continua igual */
-
-/* O resto do CSS continua igual */
-
 #winners-section h2 { font-size: 1.8em; color: #00c2ff; margin: 0 0 10px 0; text-align: center; }
 #winners-list { list-style: none; padding: 0; font-size: 1.3em; }
 #winners-list li { padding: 8px; border-bottom: 1px dashed #6c757d; }
 #winners-list li:last-child { border-bottom: none; }
 
+/* --- RESPONSIVIDADE --- */
 @media (max-width: 800px) {
     body { padding: 0; }
     #game-container { height: 100vh; width: 100vw; border-radius: 0; }
     main { flex-direction: column; overflow-y: auto; }
     #chat-section { padding-right: 0; margin-bottom: 15px; }
     #winners-section { margin-left: 0; }
+    
+    #input-area {
+        grid-template-columns: 1fr 1fr; /* Duas colunas */
+        grid-template-rows: auto auto auto; /* Três linhas */
+    }
+    #username { grid-column: 1 / 3; grid-row: 1 / 2; }
+    #message-text { grid-column: 1 / 3; grid-row: 2 / 3; }
+    #send-button { grid-column: 1 / 2; grid-row: 3 / 4; }
+    #refresh-button { grid-column: 2 / 3; grid-row: 3 / 4; }
+    #clear-button { grid-column: 1 / 3; grid-row: 4 / 5; } /* Ocupa a última linha inteira */
 }

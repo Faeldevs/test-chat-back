@@ -9,6 +9,7 @@ const usernameInput = document.getElementById('username');
 const messageTextInput = document.getElementById('message-text');
 const sendButton = document.getElementById('send-button');
 const refreshButton = document.getElementById('refresh-button');
+const clearButton = document.getElementById('clear-button'); // Botão de limpar de volta
 const riddleDisplay = document.getElementById('riddle-display');
 const winnersList = document.getElementById('winners-list');
 
@@ -17,14 +18,9 @@ let gameState = {};
 const adminPassword = "lindo";
 
 // 4. FUNÇÕES
-
-// ===== NOVA FUNÇÃO PARA NORMALIZAR TEXTO (REMOVER ACENTOS) =====
 function normalizeText(text) {
     if (!text) return '';
-    return text
-        .toLowerCase()
-        .normalize("NFD") // Separa os acentos das letras
-        .replace(/[\u0300-\u036f]/g, ""); // Remove os acentos
+    return text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
 
 function saveGameState() {
@@ -109,14 +105,10 @@ async function sendMessage() {
         }
     }
 
-    // --- LÓGICA DE VERIFICAÇÃO DE ACERTO (MODIFICADA) ---
     const normalizedText = normalizeText(text);
     const normalizedSecretWord = normalizeText(gameState.secretWord);
 
     if (gameState.isActive && normalizedSecretWord && normalizedText.includes(normalizedSecretWord)) {
-        // A lógica que impedia o vencedor de jogar foi removida.
-        // Agora, apenas adicionamos o nome à lista de vencedores.
-        // Para evitar nomes duplicados na lista, verificamos antes de adicionar.
         if (!gameState.winners.includes(user)) {
             gameState.winners.push(user);
         }
@@ -134,6 +126,22 @@ async function sendMessage() {
     }
 }
 
+// FUNÇÃO PARA O BOTÃO LIMPAR
+async function clearChat() {
+    const passwordAttempt = prompt("Digite a senha de administrador para limpar o chat:");
+    if (passwordAttempt === adminPassword) {
+        // Limpa o estado do jogo na memória
+        gameState = { isActive: false, secretWord: '', riddle: '', winners: [] };
+        saveGameState();
+        // Limpa as mensagens no banco de dados
+        await supabaseClient.from('messages').delete().gt('id', 0);
+        // Recarrega a página para mostrar as mudanças
+        location.reload();
+    } else if (passwordAttempt !== null) {
+        alert("Senha incorreta!");
+    }
+}
+
 // 5. INICIALIZAÇÃO E EVENTOS
 function loadUsername() {
     const savedUsername = localStorage.getItem('chatUsername');
@@ -142,10 +150,8 @@ function loadUsername() {
 
 sendButton.addEventListener('click', sendMessage);
 messageTextInput.addEventListener('keyup', (event) => { if (event.key === 'Enter') sendMessage(); });
-
-refreshButton.addEventListener('click', () => {
-    location.reload();
-});
+refreshButton.addEventListener('click', () => { location.reload(); });
+clearButton.addEventListener('click', clearChat); // Evento para o botão limpar
 
 // Inicialização da página
 loadUsername();
