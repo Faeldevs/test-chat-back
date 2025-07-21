@@ -1,48 +1,79 @@
-/* Importa a fonte do Google Fonts */
 @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
 
 body {
     font-family: 'VT323', monospace;
     color: #f0f0f0;
     margin: 0;
-    padding: 10px; /* Adicionado padding para telas pequenas */
-    box-sizing: border-box;
-
-    /* MUDANÇA AQUI: Novo fundo estrelado de alta qualidade */
     background-color: #000000;
     background-image: url('https://www.nasa.gov/wp-content/uploads/2023/11/hubble-captures-a-starry-scene-2023.jpg');
     background-size: cover;
     background-position: center;
     background-attachment: fixed;
-    
     display: flex;
     justify-content: center;
     align-items: center;
+    padding: 10px;
+    box-sizing: border-box;
     min-height: 100vh;
 }
 
-#chat-container {
-    width: 100%; /* Ajustado para melhor responsividade */
-    max-width: 800px; /* Aumentado um pouco */
-    height: 90vh;
+#game-container {
+    background-color: rgba(10, 20, 30, 0.9);
     border: 4px solid #6c757d;
-    background-color: rgba(10, 20, 30, 0.85);
-    backdrop-filter: blur(3px);
-    box-shadow: 0 0 20px rgba(0, 191, 255, 0.5);
     border-radius: 8px;
-    
+    box-shadow: 0 0 20px rgba(0, 191, 255, 0.5);
     display: flex;
     flex-direction: column;
-    padding: 20px;
+    width: 100%;
+    max-width: 1200px;
+    height: 95vh;
+    overflow: hidden;
 }
 
-h1 {
-    /* MUDANÇA AQUI: Fonte maior */
-    font-size: 3em;
+header {
+    padding: 15px 20px;
+    text-align: center;
+    border-bottom: 2px dashed #495057;
+    flex-shrink: 0;
+}
+
+header h1 {
+    font-size: 2.5em;
     color: #00c2ff;
     text-shadow: 3px 3px #ff00de;
-    text-align: center;
-    margin: 0 0 20px 0;
+    margin: 0;
+}
+
+#game-info p {
+    color: #f8f9fa;
+    font-size: 1.2em;
+    margin: 10px 0 0 0;
+}
+
+#riddle-display {
+    background-color: #3b2e0d;
+    color: #ffdd00;
+    padding: 10px;
+    margin-top: 15px;
+    border: 2px dashed #ffdd00;
+    border-radius: 5px;
+    word-break: break-word;
+    font-size: 1.3em;
+}
+
+main {
+    display: flex;
+    flex-grow: 1;
+    padding: 15px;
+    overflow: hidden;
+}
+
+#chat-section {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    padding-right: 15px;
+    min-width: 0;
 }
 
 #messages-window {
@@ -50,115 +81,62 @@ h1 {
     background-color: rgba(0, 0, 0, 0.5);
     border: 2px inset #495057;
     padding: 15px;
-    margin-bottom: 20px;
+    margin-bottom: 15px;
     overflow-y: auto;
-    
+    font-size: 1.4em;
     display: flex;
     flex-direction: column-reverse;
-    /* MUDANÇA AQUI: Fonte maior */
-    font-size: 1.4em;
 }
 
-/* ... (estilos da barra de rolagem permanecem os mesmos) ... */
 #messages-window::-webkit-scrollbar { width: 10px; }
 #messages-window::-webkit-scrollbar-track { background: #212529; }
 #messages-window::-webkit-scrollbar-thumb { background: #00c2ff; border-radius: 5px; }
 
+.message { margin-bottom: 10px; line-height: 1.4; word-break: break-word; }
+.message strong { color: #39ff14; margin-right: 8px; }
 
-.message strong {
-    color: #39ff14;
-    margin-right: 8px;
-}
+.system-message { font-style: italic; text-align: center; }
+.system-message strong { color: #ffffff; }
 
-#input-area {
-    display: flex;
-    gap: 15px; /* Aumentado o espaçamento */
-}
+#input-area { display: flex; gap: 10px; flex-shrink: 0; }
 
-#username, #message-text {
+#username, #message-text, #send-button, #clear-button {
+    padding: 10px;
     border: 2px solid #6c757d;
     background-color: #212529;
     color: #f8f9fa;
-    padding: 12px;
     font-family: 'VT323', monospace;
-    /* MUDANÇA AQUI: Fonte maior */
-    font-size: 1.4em;
+    font-size: 1.2em;
     border-radius: 5px;
 }
 
-#username {
-    width: 180px;
-}
+#username { width: 150px; }
+#message-text { flex-grow: 1; }
+#send-button, #clear-button { cursor: pointer; transition: background-color 0.3s, color 0.3s, border-color 0.3s; }
+#send-button { border-color: #00c2ff; color: #00c2ff; }
+#send-button:hover { background-color: #00c2ff; color: #0d1f3b; }
+#clear-button { border-color: #e53e3e; color: #e53e3e; }
+#clear-button:hover { background-color: #e53e3e; color: #3b0d0d; }
 
-#message-text {
-    flex-grow: 1;
-}
-
-#send-button {
-    border: 2px solid #00c2ff;
-    background-color: #0d1f3b;
-    color: #00c2ff;
-    font-family: 'VT323', monospace;
-    /* MUDANÇA AQUI: Fonte maior */
-    font-size: 1.4em;
-    font-weight: bold;
-    padding: 10px 20px;
-    cursor: pointer;
+#winners-section {
+    flex-basis: 300px;
+    flex-shrink: 0;
+    background-color: rgba(0, 0, 0, 0.7);
+    border: 2px solid #495057;
     border-radius: 5px;
-    transition: background-color 0.3s, color 0.3s;
+    padding: 15px;
+    overflow-y: auto;
 }
 
-#send-button:hover {
-    background-color: #00c2ff;
-    color: #0d1f3b;
-}
+#winners-section h2 { font-size: 1.8em; color: #00c2ff; margin: 0 0 10px 0; text-align: center; }
+#winners-list { list-style: none; padding: 0; font-size: 1.3em; }
+#winners-list li { padding: 8px; border-bottom: 1px dashed #6c757d; }
+#winners-list li:last-child { border-bottom: none; }
 
-#clear-button {
-    border: 2px solid #e53e3e;
-    background-color: #3b0d0d;
-    color: #e53e3e;
-    font-family: 'VT323', monospace;
-    font-size: 1.4em;
-    font-weight: bold;
-    padding: 10px 15px;
-    cursor: pointer;
-    border-radius: 5px;
-    transition: background-color 0.3s, color 0.3s;
-}
-
-#clear-button:hover {
-    background-color: #e53e3e;
-    color: #3b0d0d;
-}
-
-/* ================================== */
-/* MUDANÇA AQUI: CÓDIGO DE RESPONSIVIDADE PARA CELULAR */
-/* Estas regras só se aplicam em telas com largura máxima de 768px */
-/* ================================== */
-@media (max-width: 768px) {
-    body {
-        padding: 0; /* Remove padding para ocupar a tela toda */
-    }
-
-    #chat-container {
-        height: 100vh; /* Ocupa a altura toda da tela */
-        width: 100vw;  /* Ocupa a largura toda da tela */
-        border: none;
-        border-radius: 0;
-        padding: 15px;
-    }
-
-    h1 {
-        font-size: 2.2em; /* Diminui um pouco o título no celular */
-        margin-bottom: 10px;
-    }
-
-    #input-area {
-        flex-direction: column; /* Coloca os inputs um em cima do outro */
-    }
-
-    #username, #message-text, #send-button {
-        width: 100%; /* Faz os inputs ocuparem a largura toda */
-        box-sizing: border-box; /* Garante que o padding não quebre o layout */
-    }
+@media (max-width: 800px) {
+    body { padding: 0; }
+    #game-container { height: 100vh; width: 100vw; border-radius: 0; }
+    main { flex-direction: column; overflow-y: auto; }
+    #chat-section { padding-right: 0; margin-bottom: 15px; }
+    #winners-section { margin-left: 0; }
 }

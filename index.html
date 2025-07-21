@@ -3,24 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chat Cósmico Retrô</title>
+    <title>Adivinhe no Chat Cósmico</title>
     <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-    <div id="chat-container">
-        <h1>Comunicação Cósmica</h1>
-        
-        <div id="messages-window">
+    <div id="game-container">
+
+        <header>
+            <h1>Adivinhe no Chat Cósmico</h1>
+            <div id="game-info">
+                <p><strong>Como Jogar:</strong> O líder lança uma charada. Tente adivinhar a palavra secreta no chat. Quem acertar terá seu nome listado aqui!</p>
+                <div id="riddle-display" class="system-message">Aguardando o desafio...</div>
             </div>
+        </header>
         
-        <div id="input-area">
-            <input type="text" id="username" placeholder="Seu Nome">
-            <input type="text" id="message-text" placeholder="Digite sua mensagem..." maxlength="150">
-            <button id="send-button">Transmitir</button>
-            <button id="clear-button">Limpar Chat</button>
-        </div>
+        <main>
+            <section id="chat-section">
+                <div id="messages-window">
+                    </div>
+                <div id="input-area">
+                    <input type="text" id="username" placeholder="Seu Nome">
+                    <input type="text" id="message-text" placeholder="Sua tentativa..." maxlength="150">
+                    <button id="send-button">Enviar</button>
+                    <button id="clear-button">Limpar Chat</button>
+                </div>
+            </section>
+            
+            <aside id="winners-section">
+                <h2>Acertadores:</h2>
+                <ul id="winners-list">
+                    </ul>
+            </aside>
+        </main>
+        
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
