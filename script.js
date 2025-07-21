@@ -26,6 +26,9 @@ async function sendMessage() {
         alert('Por favor, preencha o nome e a mensagem!'); 
         return; 
     }
+
+    // ===== MUDANÇA AQUI: Salva o nome no localStorage =====
+    localStorage.setItem('chatUsername', user);
     
     const { error } = await supabaseClient.from('messages').insert([{ user: user, text: text }]);
 
@@ -37,35 +40,21 @@ async function sendMessage() {
     }
 }
 
-// ===== FUNÇÃO MODIFICADA PARA PEDIR SENHA =====
 async function clearChat() {
-    // 1. Pede a senha usando um prompt
     const passwordAttempt = prompt("Para apagar todas as mensagens, por favor, digite a senha de administrador:");
-
-    // 2. Se o usuário clicar em "Cancelar", o prompt retorna null. Saímos da função.
     if (passwordAttempt === null) {
         return;
     }
-
-    // 3. Verifica se a senha está correta
     if (passwordAttempt === "lindo") {
-        // Senha correta, executa a exclusão
-        console.log("Senha correta. Limpando o chat...");
-        const { error } = await supabaseClient
-            .from('messages')
-            .delete()
-            .gt('id', 0); // gt = greater than, apaga todas as linhas
-
+        const { error } = await supabaseClient.from('messages').delete().gt('id', 0);
         if (error) {
             console.error('Erro ao limpar o chat:', error);
             alert('Ocorreu um erro ao limpar o chat.');
         }
     } else {
-        // Senha incorreta, avisa o usuário
         alert("Senha incorreta!");
     }
 }
-
 
 function addMessageToWindow(message) {
     const messageDiv = document.createElement('div');
@@ -102,5 +91,14 @@ channel
   })
   .subscribe();
 
-// Carrega as mensagens iniciais quando a página é aberta
+// ===== MUDANÇA AQUI: Carrega o nome salvo ao iniciar a página =====
+function loadUsername() {
+    const savedUsername = localStorage.getItem('chatUsername');
+    if (savedUsername) {
+        usernameInput.value = savedUsername;
+    }
+}
+
+// Executa as funções iniciais
+loadUsername();
 fetchMessages();
