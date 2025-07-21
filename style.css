@@ -141,6 +141,20 @@ main {
     color: #3b0d0d;
 }
 
+/* Adicione este bloco ao seu CSS */
+#refresh-button {
+    border-color: #39ff14; /* Verde neon */
+    background-color: #0d3b1f;
+    color: #39ff14;
+}
+
+#refresh-button:hover {
+    background-color: #39ff14;
+    color: #0d3b1f;
+}
+
+/* O resto do seu CSS continua igual */
+
 /* O resto do CSS continua igual */
 
 #winners-section h2 { font-size: 1.8em; color: #00c2ff; margin: 0 0 10px 0; text-align: center; }
